@@ -1,0 +1,238 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bathing Schedule Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 共通：行間崩れ対策 */
+    .tight-cell {
+      line-height: 1.15 !important;
+      font-size: 11px !important;
+      word-break: break-all;
+      overflow-wrap: break-word;
+    }
+
+    .tight-cell *, 
+    .tight-cell span, 
+    .tight-cell font {
+      margin: 0 !important;
+      padding: 0 !important;
+      line-height: inherit !important;
+      display: inline !important;
+      vertical-align: baseline !important;
+      font-size: inherit !important;
+    }
+
+    .tight-cell br {
+      display: block !important;
+      content: "";
+      margin: 0 !important;
+    }
+
+    /* エディタ内 */
+    [contenteditable] {
+      line-height: 1.15 !important;
+    }
+
+    /* 印刷用設定 */
+    @media print {
+      /* 背景色を強制的に印刷 */
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* 用紙設定 */
+      @page { 
+        size: A4 portrait; 
+        margin: 5mm !important; 
+      }
+      
+      html, body {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        overflow: hidden !important;
+      }
+
+      /* アプリルート */
+      .app-root {
+        width: 100% !important;
+        height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: white !important;
+        position: relative !important;
+      }
+
+      /* 不要要素非表示 */
+      header, nav, .no-print, .fixed, button, .bg-slate-900 { 
+        display: none !important; 
+        height: 0 !important;
+        width: 0 !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+
+      /* メインエリア */
+      main {
+        flex: 1 !important;
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+
+      /* タイトル調整 */
+      h2 {
+        font-size: 16pt !important;
+        margin-bottom: 2mm !important;
+        padding-top: 0 !important;
+        text-align: center !important;
+        flex: 0 0 auto !important;
+      }
+      
+      .text-center.mb-6.relative {
+        margin-bottom: 2mm !important;
+        flex: 0 0 auto !important;
+      }
+
+      /* スケジュール表コンテナ */
+      .schedule-container {
+        flex: 1 !important; 
+        width: 100% !important;
+        border: 2px solid #000 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin-bottom: 0 !important;
+        background: white !important;
+      }
+
+      /* 曜日ヘッダー */
+      .grid.grid-cols-7 {
+        flex: 0 0 auto !important;
+        border-bottom: 1px solid #000 !important;
+        display: flex !important;
+      }
+      
+      .grid.grid-cols-7 > div {
+        flex: 1 !important;
+        border-right: 1px solid #000 !important;
+        font-size: 10pt !important;
+      }
+      .grid.grid-cols-7 > div:last-child {
+        border-right: none !important;
+      }
+
+      /* 週の行 */
+      /* Grid Layoutに変更し、上下の配置を厳格にする */
+      .week-row {
+        flex: 1 1 0% !important; /* 親コンテナ内での均等配置 */
+        display: grid !important;
+        grid-template-rows: 1fr auto !important; /* 上部可変(1fr)、下部固定(auto) */
+        grid-template-columns: 100% !important;
+        border-bottom: 1px solid #000 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .week-row:last-child {
+        border-bottom: none !important;
+      }
+
+      /* 
+         日付グリッド
+         Gridアイテムとして 1fr の領域を埋める
+      */
+      .days-grid {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important; /* 内部はflex */
+        flex-direction: row !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      
+      /* 各日付の列 */
+      .days-grid > div {
+         flex: 1 1 0% !important; 
+         display: flex !important;
+         flex-direction: column !important;
+         height: 100% !important; /* 親の高さに合わせる */
+         border-right: 1px solid #000 !important;
+      }
+      .days-grid > div:last-child {
+        border-right: none !important;
+      }
+      
+      /* 日付数字 */
+      .days-grid > div > div:first-child {
+        border-bottom: 1px solid #000 !important; /* #cccから#000に変更して濃くする */
+        font-size: 9pt !important;
+        flex: 0 0 auto !important;
+      }
+
+      /* セル内のテキスト配置 */
+      .tight-cell {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important; 
+        align-items: center !important;
+        height: auto !important;
+        font-size: 9pt !important;
+        padding: 1px !important;
+      }
+
+      /* 衛生チェック行 */
+      .footer-row {
+        /* Gridアイテムとして auto の領域を使用 */
+        width: 100% !important;
+        height: 16px !important;
+        margin: 0 !important; /* 余計なマージン削除 */
+        padding: 0 !important;
+        overflow: hidden !important;
+        border-top: 1px solid #000 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 8pt !important;
+        background-color: #fef08a !important; 
+      }
+      
+      .print-border-black { 
+        border-color: #000 !important; 
+        border-width: 1px !important;
+      }
+
+      .hidden-print {
+        display: none !important;
+      }
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0"
+  }
+}
+</script>
+</head>
+<body class="bg-gray-50 antialiased print:bg-white">
+  <div id="root"></div>
+</body>
+</html>
